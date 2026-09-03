@@ -1,0 +1,515 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Signal Desk</title>
+<style>
+  /* ── TOKENS ── */
+  :root {
+    --bg:        #0a0e17;
+    --surface:   #111827;
+    --border:    #1e2d40;
+    --text:      #e2e8f0;
+    --muted:     #64748b;
+    --long:      #10b981;
+    --short:     #f43f5e;
+    --tp:        #10b981;
+    --sl:        #f43f5e;
+    --open:      #f59e0b;
+    --accent:    #3b82f6;
+    --font:      'Inter', system-ui, sans-serif;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--font);
+    min-height: 100vh;
+  }
+
+  /* ── HEADER ── */
+  header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 14px 20px;
+    border-bottom: 1px solid var(--border);
+    position: sticky;
+    top: 0;
+    background: var(--bg);
+    z-index: 100;
+  }
+
+  .logo {
+    font-size: 15px;
+    font-weight: 700;
+    letter-spacing: .5px;
+    color: var(--text);
+  }
+
+  .logo span { color: var(--accent); }
+
+  .live-dot {
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    background: var(--long);
+    display: inline-block;
+    margin-right: 6px;
+    animation: pulse 2s infinite;
+  }
+
+  @keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50%       { opacity: .3; }
+  }
+
+  .live-label { font-size: 12px; color: var(--muted); }
+
+  /* ── STATS BAR ── */
+  .stats-bar {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 1px;
+    background: var(--border);
+    border-bottom: 1px solid var(--border);
+  }
+
+  .stat {
+    background: var(--surface);
+    padding: 14px 18px;
+    text-align: center;
+  }
+
+  .stat-val {
+    font-size: 22px;
+    font-weight: 700;
+    line-height: 1;
+    margin-bottom: 4px;
+  }
+
+  .stat-label {
+    font-size: 11px;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: .6px;
+  }
+
+  .green { color: var(--long); }
+  .red   { color: var(--short); }
+  .blue  { color: var(--accent); }
+  .amber { color: var(--open); }
+
+  /* ── MAIN LAYOUT ── */
+  .main {
+    display: grid;
+    grid-template-columns: 340px 1fr;
+    height: calc(100vh - 110px);
+  }
+
+  @media (max-width: 768px) {
+    .main { grid-template-columns: 1fr; height: auto; }
+    .stats-bar { grid-template-columns: repeat(2, 1fr); }
+    .chart-panel { height: 300px; }
+  }
+
+  /* ── SIGNALS LIST ── */
+  .signals-panel {
+    border-right: 1px solid var(--border);
+    overflow-y: auto;
+  }
+
+  .panel-header {
+    padding: 12px 16px;
+    font-size: 12px;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: .6px;
+    border-bottom: 1px solid var(--border);
+    position: sticky;
+    top: 0;
+    background: var(--surface);
+  }
+
+  .signal-card {
+    padding: 14px 16px;
+    border-bottom: 1px solid var(--border);
+    cursor: pointer;
+    transition: background .15s;
+  }
+
+  .signal-card:hover,
+  .signal-card.active {
+    background: #151e2e;
+  }
+
+  .signal-card.active {
+    border-left: 3px solid var(--accent);
+  }
+
+  .card-top {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 8px;
+  }
+
+  .coin-name {
+    font-size: 14px;
+    font-weight: 700;
+  }
+
+  .badge {
+    font-size: 11px;
+    font-weight: 700;
+    padding: 2px 8px;
+    border-radius: 3px;
+    letter-spacing: .5px;
+  }
+
+  .badge-long  { background: #0d3326; color: var(--long); }
+  .badge-short { background: #3b0a18; color: var(--short); }
+
+  .outcome-badge {
+    font-size: 10px;
+    font-weight: 600;
+    padding: 2px 7px;
+    border-radius: 3px;
+  }
+
+  .outcome-open { background: #3a2a00; color: var(--open); }
+  .outcome-tp   { background: #0d3326; color: var(--long); }
+  .outcome-sl   { background: #3b0a18; color: var(--short); }
+
+  .card-levels {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 4px;
+    font-size: 11px;
+  }
+
+  .level-box {
+    background: var(--bg);
+    border-radius: 4px;
+    padding: 5px 6px;
+    text-align: center;
+  }
+
+  .level-box .lbl {
+    color: var(--muted);
+    font-size: 9px;
+    display: block;
+    margin-bottom: 2px;
+    letter-spacing: .4px;
+  }
+
+  .level-box .val { font-size: 11px; font-weight: 600; }
+  .level-box.entry .val { color: var(--accent); }
+  .level-box.sl    .val { color: var(--short); }
+  .level-box.tp1   .val { color: var(--open); }
+  .level-box.tp2   .val { color: var(--long); }
+
+  .card-meta {
+    display: flex;
+    justify-content: space-between;
+    margin-top: 7px;
+    font-size: 10px;
+    color: var(--muted);
+  }
+
+  /* ── CHART PANEL ── */
+  .chart-panel {
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  .chart-header {
+    padding: 12px 18px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background: var(--surface);
+    flex-shrink: 0;
+  }
+
+  .chart-coin {
+    font-size: 18px;
+    font-weight: 700;
+  }
+
+  .chart-meta {
+    font-size: 12px;
+    color: var(--muted);
+  }
+
+  .tf-btns { display: flex; gap: 6px; }
+
+  .tf-btn {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    color: var(--muted);
+    font-size: 11px;
+    padding: 4px 10px;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: all .15s;
+  }
+
+  .tf-btn.active, .tf-btn:hover {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: #fff;
+  }
+
+  #tv-chart {
+    flex: 1;
+    width: 100%;
+  }
+
+  /* ── EMPTY STATE ── */
+  .empty {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
+    gap: 10px;
+    color: var(--muted);
+    font-size: 13px;
+  }
+
+  .empty-icon { font-size: 36px; opacity: .4; }
+
+  /* ── SCROLLBAR ── */
+  ::-webkit-scrollbar { width: 4px; }
+  ::-webkit-scrollbar-track { background: var(--bg); }
+  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+</style>
+</head>
+<body>
+
+<!-- HEADER -->
+<header>
+  <div class="logo">Signal<span>Desk</span></div>
+  <div>
+    <span class="live-dot"></span>
+    <span class="live-label" id="last-update">Connecting...</span>
+  </div>
+</header>
+
+<!-- STATS BAR -->
+<div class="stats-bar">
+  <div class="stat">
+    <div class="stat-val blue"  id="s-total">—</div>
+    <div class="stat-label">Signals</div>
+  </div>
+  <div class="stat">
+    <div class="stat-val green" id="s-wr">—</div>
+    <div class="stat-label">Win Rate</div>
+  </div>
+  <div class="stat">
+    <div class="stat-val amber" id="s-open">—</div>
+    <div class="stat-label">Open</div>
+  </div>
+  <div class="stat">
+    <div class="stat-val" id="s-pnl">—</div>
+    <div class="stat-label">Total PnL</div>
+  </div>
+</div>
+
+<!-- MAIN -->
+<div class="main">
+
+  <!-- SIGNALS LIST -->
+  <div class="signals-panel">
+    <div class="panel-header">Recent Signals</div>
+    <div id="signals-list">
+      <div class="empty">
+        <div class="empty-icon">📡</div>
+        Waiting for signals...
+      </div>
+    </div>
+  </div>
+
+  <!-- CHART PANEL -->
+  <div class="chart-panel">
+    <div class="chart-header">
+      <div>
+        <div class="chart-coin" id="chart-coin">Select a signal</div>
+        <div class="chart-meta" id="chart-meta">Click any signal to load chart</div>
+      </div>
+      <div class="tf-btns">
+        <button class="tf-btn active" onclick="setTF('5')">5m</button>
+        <button class="tf-btn" onclick="setTF('15')">15m</button>
+        <button class="tf-btn" onclick="setTF('60')">1h</button>
+      </div>
+    </div>
+
+    <div id="tv-chart">
+      <div class="empty" style="height:100%">
+        <div class="empty-icon">📈</div>
+        Select a signal to view chart
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<!-- TRADINGVIEW WIDGET -->
+<script src="https://s3.tradingview.com/tv.js"></script>
+
+<script>
+  let currentSymbol = null;
+  let currentTF     = '5';
+  let tvWidget      = null;
+  let activeCard    = null;
+
+  // ── FETCH & RENDER ──
+  async function fetchStats() {
+    try {
+      const r = await fetch('/api/stats');
+      const d = await r.json();
+
+      document.getElementById('s-total').textContent = d.total;
+      document.getElementById('s-open').textContent  = d.open;
+
+      const closed = d.wins + d.losses;
+      const wr = closed > 0 ? Math.round(d.wins / closed * 100) : 0;
+      document.getElementById('s-wr').textContent = closed > 0 ? wr + '%' : '—';
+
+      const pnlEl = document.getElementById('s-pnl');
+      pnlEl.textContent = (d.pnl >= 0 ? '+' : '') + '$' + d.pnl.toFixed(2);
+      pnlEl.className   = 'stat-val ' + (d.pnl >= 0 ? 'green' : 'red');
+
+      document.getElementById('last-update').textContent =
+        'Updated ' + new Date().toLocaleTimeString();
+    } catch(e) {}
+  }
+
+  async function fetchSignals() {
+    try {
+      const r = await fetch('/api/signals');
+      const signals = await r.json();
+      renderSignals(signals);
+    } catch(e) {}
+  }
+
+  function fmtPrice(p) {
+    if (p >= 100)   return p.toFixed(2);
+    if (p >= 1)     return p.toFixed(4);
+    if (p >= 0.01)  return p.toFixed(6);
+    return p.toFixed(8);
+  }
+
+  function outcomeHtml(outcome, pnl) {
+    if (!outcome || outcome === 'OPEN')
+      return '<span class="outcome-badge outcome-open">OPEN</span>';
+    if (outcome === 'SL')
+      return '<span class="outcome-badge outcome-sl">SL HIT</span>';
+    if (outcome === 'TP2')
+      return '<span class="outcome-badge outcome-tp">TP2 ✓</span>';
+    if (outcome === 'TP1')
+      return '<span class="outcome-badge outcome-tp">TP1 ✓</span>';
+    return '<span class="outcome-badge outcome-open">' + outcome + '</span>';
+  }
+
+  function renderSignals(signals) {
+    const el = document.getElementById('signals-list');
+    if (!signals.length) {
+      el.innerHTML = `<div class="empty"><div class="empty-icon">📡</div>Waiting for signals...</div>`;
+      return;
+    }
+
+    el.innerHTML = signals.map(s => `
+      <div class="signal-card ${activeCard === s.id ? 'active' : ''}"
+           id="card-${s.id}"
+           onclick="selectSignal(${s.id}, '${s.symbol}', '${s.signal}', ${s.entry}, ${s.sl}, ${s.tp1}, ${s.tp2}, '${s.timestamp}')">
+        <div class="card-top">
+          <span class="coin-name">${s.symbol.replace('USDT','')}<span style="color:var(--muted);font-weight:400;font-size:12px">/USDT</span></span>
+          <div style="display:flex;gap:6px;align-items:center">
+            <span class="badge badge-${s.signal.toLowerCase()}">${s.signal}</span>
+            ${outcomeHtml(s.outcome, s.pnl)}
+          </div>
+        </div>
+        <div class="card-levels">
+          <div class="level-box entry"><span class="lbl">ENTRY</span><span class="val">${fmtPrice(s.entry)}</span></div>
+          <div class="level-box sl">   <span class="lbl">SL</span>   <span class="val">${fmtPrice(s.sl)}</span></div>
+          <div class="level-box tp1">  <span class="lbl">TP1</span>  <span class="val">${fmtPrice(s.tp1)}</span></div>
+          <div class="level-box tp2">  <span class="lbl">TP2</span>  <span class="val">${fmtPrice(s.tp2)}</span></div>
+        </div>
+        <div class="card-meta">
+          <span>RSI ${s.rsi} · Vol ${s.vol}x</span>
+          <span>${s.timestamp}</span>
+        </div>
+      </div>
+    `).join('');
+  }
+
+  // ── CHART ──
+  function selectSignal(id, symbol, signal, entry, sl, tp1, tp2, ts) {
+    activeCard    = id;
+    currentSymbol = symbol;
+
+    // Update active card highlight
+    document.querySelectorAll('.signal-card').forEach(c => c.classList.remove('active'));
+    const card = document.getElementById('card-' + id);
+    if (card) card.classList.add('active');
+
+    document.getElementById('chart-coin').textContent =
+      symbol.replace('USDT', '') + '/USDT';
+    document.getElementById('chart-meta').textContent =
+      signal + ' · Entry ' + fmtPrice(entry) + ' · ' + ts;
+
+    loadChart(symbol);
+  }
+
+  function loadChart(symbol) {
+    const container = document.getElementById('tv-chart');
+    container.innerHTML = '';
+
+    tvWidget = new TradingView.widget({
+      container_id:    'tv-chart',
+      symbol:          'BINANCE:' + symbol + '.P',
+      interval:        currentTF,
+      timezone:        'Etc/UTC',
+      theme:           'dark',
+      style:           '1',
+      locale:          'en',
+      toolbar_bg:      '#111827',
+      enable_publishing: false,
+      hide_top_toolbar: false,
+      hide_legend:     false,
+      save_image:      false,
+      studies: [
+        'MAExp@tv-basicstudies',
+        'RSI@tv-basicstudies',
+        'MACD@tv-basicstudies',
+      ],
+      width:  '100%',
+      height: '100%',
+    });
+  }
+
+  function setTF(tf) {
+    currentTF = tf;
+    document.querySelectorAll('.tf-btn').forEach(b => b.classList.remove('active'));
+    event.target.classList.add('active');
+    if (currentSymbol) loadChart(currentSymbol);
+  }
+
+  // ── POLLING — har 30 sec mein refresh ──
+  function refresh() {
+    fetchStats();
+    fetchSignals();
+  }
+
+  refresh();
+  setInterval(refresh, 30000);
+</script>
+
+</body>
+</html>
